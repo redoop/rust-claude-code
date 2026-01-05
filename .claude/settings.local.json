@@ -5,7 +5,10 @@
       "Bash(git commit:*)",
       "Bash(gh repo create:*)",
       "Bash(cargo build:*)",
-      "Bash(RUST_BACKTRACE=1 cargo check:*)"
+      "Bash(RUST_BACKTRACE=1 cargo check:*)",
+      "Bash(git push:*)",
+      "Bash(cargo run:*)",
+      "Bash(unset:*)"
     ]
   }
 }
