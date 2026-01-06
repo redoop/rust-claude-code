@@ -230,8 +230,8 @@ mod tests {
     fn test_default_settings() {
         let settings = UserSettings::default();
         assert_eq!(settings.theme, "default");
-        assert_eq!(settings.auto_save, false);
-        assert_eq!(settings.ai_enabled, true);
+        assert!(!settings.auto_save);
+        assert!(settings.ai_enabled);
         assert_eq!(settings.confidence_threshold, 0.8);
     }
 
