@@ -4,15 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/yourusername/rust-claude-code)
 
-A high-performance, secure Rust implementation of Claude AI code assistant CLI tool, providing intelligent code assistance through Anthropic Claude API.
+一个高性能、安全的 Rust 实现的 Claude AI 代码助手命令行工具，通过 Anthropic Claude API 提供智能代码辅助功能。
 
-## 📁 Documentation
+[English Documentation](README.md) | 中文文档
 
-- **English**: This README.md
-- **中文文档**: [README_CN.md](README_CN.md)
-- **PRD**: [PRD.md](PRD.md) (Product Requirements Document)
-
-## ✨ Features
+## ✨ 特性
 
 - 🚀 **高性能** - 基于 Rust 的高性能实现，快速响应
 - 🔒 **安全可靠** - 类型安全、内存安全和输入验证保证
