@@ -2,11 +2,12 @@ use anyhow::{Context, Result};
 use backoff::{future::retry, ExponentialBackoff};
 use reqwest::Client;
 use serde_json::json;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-/// API 错误类型
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("API request failed with status {0}: {1}")]
@@ -28,15 +29,16 @@ pub enum ApiError {
     Network(#[from] reqwest::Error),
 
     #[error("Timeout after {0} seconds")]
+    #[allow(dead_code)]
     Timeout(u64),
 
     #[error("Response parsing error: {0}")]
     ParseError(#[from] serde_json::Error),
 }
 
-/// 重试配置
 #[derive(Debug, Clone)]
 pub struct RetryConfig {
+    #[allow(dead_code)]
     pub max_retries: u32,
     pub initial_delay: Duration,
     pub max_delay: Duration,
@@ -54,6 +56,47 @@ impl Default for RetryConfig {
     }
 }
 
+/// 性能统计数据
+#[derive(Debug, Default)]
+pub struct PerformanceStats {
+    pub total_requests: AtomicU64,
+    pub successful_requests: AtomicU64,
+    pub failed_requests: AtomicU64,
+    pub total_duration_ms: AtomicU64,
+}
+
+impl PerformanceStats {
+    pub fn record_success(&self, duration_ms: u64) {
+        self.total_requests.fetch_add(1, Ordering::SeqCst);
+        self.successful_requests.fetch_add(1, Ordering::SeqCst);
+        self.total_duration_ms
+            .fetch_add(duration_ms, Ordering::SeqCst);
+    }
+
+    pub fn record_failure(&self) {
+        self.total_requests.fetch_add(1, Ordering::SeqCst);
+        self.failed_requests.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn average_duration_ms(&self) -> f64 {
+        let successful = self.successful_requests.load(Ordering::SeqCst);
+        if successful == 0 {
+            return 0.0;
+        }
+        let total = self.total_duration_ms.load(Ordering::SeqCst);
+        total as f64 / successful as f64
+    }
+
+    pub fn success_rate(&self) -> f64 {
+        let total = self.total_requests.load(Ordering::SeqCst);
+        if total == 0 {
+            return 100.0;
+        }
+        let successful = self.successful_requests.load(Ordering::SeqCst);
+        (successful as f64 / total as f64) * 100.0
+    }
+}
+
 /// 带有重试机制的 API 客户端
 pub struct ApiClient {
     client: Client,
@@ -61,6 +104,7 @@ pub struct ApiClient {
     api_url: String,
     retry_config: RetryConfig,
     request_id: String,
+    stats: Arc<PerformanceStats>,
 }
 
 impl ApiClient {
@@ -71,9 +115,15 @@ impl ApiClient {
             api_url,
             retry_config: RetryConfig::default(),
             request_id: Uuid::new_v4().to_string(),
+            stats: Arc::new(PerformanceStats::default()),
         }
     }
 
+    pub fn get_stats(&self) -> Arc<PerformanceStats> {
+        Arc::clone(&self.stats)
+    }
+
+    #[allow(dead_code)]
     pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
         self.retry_config = config;
         self
@@ -97,9 +147,9 @@ impl ApiClient {
         };
 
         let operation = || async {
-            self.call_claude_once(messages, tools)
-                .await
-                .map_err(|e| match &e {
+            self.call_claude_once(messages, tools).await.map_err(|e| {
+                self.stats.record_failure();
+                match &e {
                     ApiError::RateLimit(_) => {
                         warn!("Rate limit hit, will retry (request_id: {})", request_id);
                         backoff::Error::transient(anyhow::anyhow!("{}", e))
@@ -120,7 +170,8 @@ impl ApiClient {
                         error!("Non-retryable error (request_id: {}): {}", request_id, e);
                         backoff::Error::permanent(e.into())
                     }
-                })
+                }
+            })
         };
 
         let result = retry(backoff, operation)
@@ -131,7 +182,6 @@ impl ApiClient {
         Ok(result)
     }
 
-    /// 单次 API 调用
     async fn call_claude_once(
         &self,
         messages: &serde_json::Value,
@@ -147,7 +197,7 @@ impl ApiClient {
             request_body["tools"] = get_tools();
         }
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let response = self
             .client
@@ -195,6 +245,11 @@ impl ApiClient {
         }
 
         let response_json: serde_json::Value = response.json().await?;
+
+        let duration = start_time.elapsed();
+        self.stats.record_success(duration.as_millis() as u64);
+        info!("API call completed in {:?}", duration);
+
         Ok(response_json)
     }
 }

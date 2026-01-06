@@ -1,8 +1,18 @@
 use anyhow::{anyhow, Context, Result};
+use once_cell::sync::Lazy;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
+
+/// 危险命令集合 - 使用 HashSet 进行 O(1) 查找
+static DANGEROUS_COMMANDS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    HashSet::from([
+        "rm -rf /", "sudo rm", "format", "del /f", "shutdown", "reboot", "halt", "poweroff",
+        "mkfs", "fdisk", "dd if=",
+    ])
+});
 
 /// 输入验证器
 pub struct InputValidator;
@@ -50,14 +60,9 @@ impl InputValidator {
             return Err(anyhow!("Command cannot be empty"));
         }
 
-        // 检查危险命令
-        let dangerous_commands = [
-            "rm -rf /", "sudo rm", "format", "del /f", "shutdown", "reboot", "halt", "poweroff",
-            "mkfs", "fdisk", "dd if=",
-        ];
-
+        // 检查危险命令 - 使用 HashSet 进行 O(1) 查找
         let lower_command = command.to_lowercase();
-        for dangerous in &dangerous_commands {
+        for dangerous in DANGEROUS_COMMANDS.iter() {
             if lower_command.contains(dangerous) {
                 return Err(anyhow!("Dangerous command detected: {}", command));
             }

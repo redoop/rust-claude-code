@@ -50,11 +50,9 @@ pub struct LocalSettings {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub user_settings: UserSettings,
-    pub local_settings: LocalSettings,
     pub api_key: String,
     pub api_base_url: String,
     pub api_timeout_ms: u64,
-    pub disable_nonesessential_traffic: bool,
 }
 
 // 默认值函数
@@ -111,15 +109,12 @@ impl Config {
         let api_key = Self::get_api_key(&user_settings, &local_settings)?;
         let api_base_url = Self::get_api_base_url(&user_settings);
         let api_timeout_ms = Self::get_api_timeout();
-        let disable_nonesessential_traffic = Self::get_disable_traffic();
 
         Ok(Config {
             user_settings,
-            local_settings,
             api_key,
             api_base_url,
             api_timeout_ms,
-            disable_nonesessential_traffic,
         })
     }
 
@@ -224,48 +219,6 @@ impl Config {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(120_000) // 默认 120 秒
-    }
-
-    /// 获取是否禁用非必要流量
-    fn get_disable_traffic() -> bool {
-        std::env::var("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
-            .ok()
-            .map(|v| v == "1" || v.to_lowercase() == "true")
-            .unwrap_or(false)
-    }
-
-    /// 保存用户配置
-    pub fn save_user_settings(settings: &UserSettings) -> Result<()> {
-        let claude_dir = Self::get_claude_dir()?;
-        let settings_path = claude_dir.join("settings.json");
-
-        fs::create_dir_all(&claude_dir)
-            .with_context(|| format!("Failed to create directory: {:?}", claude_dir))?;
-
-        let content =
-            serde_json::to_string_pretty(settings).context("Failed to serialize settings")?;
-
-        fs::write(&settings_path, content)
-            .with_context(|| format!("Failed to write settings file: {:?}", settings_path))?;
-
-        Ok(())
-    }
-
-    /// 保存本地配置
-    pub fn save_local_settings(settings: &LocalSettings) -> Result<()> {
-        let claude_dir = Self::get_claude_dir()?;
-        let settings_path = claude_dir.join("settings.local.json");
-
-        fs::create_dir_all(&claude_dir)
-            .with_context(|| format!("Failed to create directory: {:?}", claude_dir))?;
-
-        let content =
-            serde_json::to_string_pretty(settings).context("Failed to serialize local settings")?;
-
-        fs::write(&settings_path, content)
-            .with_context(|| format!("Failed to write local settings file: {:?}", settings_path))?;
-
-        Ok(())
     }
 }
 
