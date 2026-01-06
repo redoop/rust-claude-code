@@ -210,7 +210,7 @@ impl Config {
         }
 
         std::env::var("ANTHROPIC_BASE_URL")
-            .unwrap_or_else(|_| "https://api.anthropic.com".to_string())
+            .unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string())
     }
 
     /// 获取 API 超时时间

@@ -222,10 +222,28 @@ impl ApiClient {
                 .and_then(|v| v.to_str().ok())
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(60);
+
+            let error_text = response.text().await?;
+
+            if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                if let Some(error) = error_json.get("error") {
+                    if let Some(code) = error.get("code").and_then(|c| c.as_str()) {
+                        if code == "1113" {
+                            let msg = error
+                                .get("message")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("Insufficient balance");
+                            return Err(ApiError::HttpError(status.as_u16(), msg.to_string()));
+                        }
+                    }
+                }
+            }
+
             return Err(ApiError::RateLimit(retry_after));
         }
 
         if status == 401 {
+            let _error_text = response.text().await?;
             return Err(ApiError::Authentication);
         }
 
@@ -241,6 +259,18 @@ impl ApiClient {
 
         if !status.is_success() {
             let error_text = response.text().await?;
+
+            if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                if let Some(msg) = error_json.get("msg").and_then(|m| m.as_str()) {
+                    return Err(ApiError::HttpError(status.as_u16(), msg.to_string()));
+                }
+                if let Some(error) = error_json.get("error") {
+                    if let Some(msg) = error.get("message").and_then(|m| m.as_str()) {
+                        return Err(ApiError::HttpError(status.as_u16(), msg.to_string()));
+                    }
+                }
+            }
+
             return Err(ApiError::HttpError(status.as_u16(), error_text));
         }
 
