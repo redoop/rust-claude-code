@@ -1,0 +1,10 @@
+{
+  "theme": "default",
+  "auto_save": false,
+  "ai_enabled": true,
+  "anthropic_api_key": "sk-ant-demo-key-for-testing",
+  "confidence_threshold": 0.8,
+  "enabled_plugins": [
+    "rust-analyzer-lsp@claude-plugins-official"
+  ]
+}

@@ -1,0 +1,28 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Configuration (keep settings.json, ignore local settings)
+.claude/settings.local.json
+
+# Build artifacts
+rust-claude-code-demo
+manual_build.sh
+fix_build.sh
+
+# Debug
+*.log
+
+# Temporary files
+*.tmp
+*.temp
